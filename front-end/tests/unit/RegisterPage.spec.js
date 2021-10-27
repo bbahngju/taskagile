@@ -1,9 +1,12 @@
 import { mount, createLocalVue } from "@vue/test-utils";
 import RegisterPage from '@/views/RegisterPage'
 import VueRouter from 'vue-router'
+import Vuelidate from 'vuelidate'
+import registrationService from '@/services/registration'
 
 const localVue = createLocalVue()
 localVue.use(VueRouter)
+localVue.use(Vuelidate)
 const router = new VueRouter();
 
 jest.mock('@/services/registration')
@@ -14,6 +17,7 @@ describe('RegisterPage.vue', () => {
   let fieldEmailAddress
   let fieldPassword
   let buttonSubmit
+  let registerSpy
 
   beforeEach(() => {
     wrapper = mount(RegisterPage, {
@@ -25,6 +29,12 @@ describe('RegisterPage.vue', () => {
     fieldEmailAddress = wrapper.find('#emailAddress')
     fieldPassword = wrapper.find('#password')
     buttonSubmit = wrapper.find('form button[type="submit"]')
+    registerSpy = jest.spyOn(registrationService, 'register')
+  })
+
+  afterEach(() => {
+    registerSpy.mockReset()
+    registerSpy.mockRestore()
   })
 
   afterAll(() => {
@@ -73,24 +83,56 @@ describe('RegisterPage.vue', () => {
     expect(stub).toBeCalled()
   })
 
-  it('should register when it is a new user', () => {
+  it('should register when it is a new user',async () => {
+    expect.assertions(2)
     const stub = jest.fn()
     wrapper.vm.$router.push = stub
+
     wrapper.vm.form.username = 'sunny'
-    wrapper.vm.form.emailAddress = 'sunny@local'
-    wrapper.vm.form.password = 'Jest!'
+    wrapper.vm.form.emailAddress = 'sunny@taskagile.com'
+    wrapper.vm.form.password = 'JestRocks!'
+
     wrapper.vm.submitForm()
-    wrapper.vm.$nextTick(() => {
-      expect(stub).toHaveBeenCalledWith({name: 'LoginPage'})
-    })
+    expect(registerSpy).toBeCalled()
+    await wrapper.vm.$nextTick()
+    expect(stub).toHaveBeenCalledWith({name: 'LoginPage'})
   })
 
-  it('should fail it is not a new user', () => {
-    wrapper.vm.form.emailAddress = 'ted@local'
+  it('should fail it is not a new user', async () => {
+    expect.assertions(3)
+    wrapper.vm.form.username = 'ted'
+    wrapper.vm.form.emailAddress = 'ted@taskagile.com'
+    wrapper.vm.form.password = 'JestRocks!'
+
     expect(wrapper.find('.failed').isVisible()).toBe(false)
-    wrapper.vm.submitForm()
-    wrapper.vm.$nextTick(null, () => {
-      expect(wrapper.find('.failed').isVisible()).toBe(true)
-    })
+    await wrapper.vm.submitForm()
+    expect(registerSpy).toBeCalled()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.failed').isVisible()).toBe(true)
   })
+
+  it('should fail when the email address is invalid', () => {
+    wrapper.vm.form.username = 'test'
+    wrapper.vm.form.emailAddress = 'bad-email-address'
+    wrapper.vm.form.password = 'JestRocks!'
+    wrapper.vm.submitForm()
+    expect(registerSpy).not.toHaveBeenCalled()
+  })
+
+  it('should fail when the username is invalid', () => {
+    wrapper.vm.form.username = 'u'
+    wrapper.vm.form.emailAddress = 'user@taskAgile.com'
+    wrapper.vm.form.password = 'JestRocks!'
+    wrapper.vm.submitForm()
+    expect(registerSpy).not.toHaveBeenCalled()
+  })
+
+  it('should fail when the password is invalid', () => {
+    wrapper.vm.form.username = 'user'
+    wrapper.vm.form.emailAddress = 'user@taskAgile.com'
+    wrapper.vm.form.password = 'u!'
+    wrapper.vm.submitForm()
+    expect(registerSpy).not.toHaveBeenCalled()
+  })
+
 })
